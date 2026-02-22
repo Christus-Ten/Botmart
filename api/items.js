@@ -1,32 +1,24 @@
 const express = require('express');
 const router = express.Router();
-const Item = require('../models/Item');
+const path = require('path');
+const Item = require(path.join(__dirname, '..', 'models', 'Item'));
 
-// GET /api/items - Liste paginée des items
+// GET /api/items - Liste paginée
 router.get('/', async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const search = req.query.search || '';
     const type = req.query.type || '';
-    const sort = req.query.sort || '-createdAt';
 
     const query = {};
-    
-    // Recherche textuelle
-    if (search) {
-      query.$text = { $search: search };
-    }
-    
-    // Filtre par type
-    if (type) {
-      query.type = type;
-    }
+    if (search) query.$text = { $search: search };
+    if (type) query.type = type;
 
     const skip = (page - 1) * limit;
     
     const items = await Item.find(query)
-      .sort(sort)
+      .sort('-createdAt')
       .skip(skip)
       .limit(limit)
       .select('-code -__v');
@@ -38,43 +30,25 @@ router.get('/', async (req, res) => {
       items,
       total,
       page,
-      totalPages: Math.ceil(total / limit),
-      limit
+      totalPages: Math.ceil(total / limit)
     });
   } catch (error) {
-    console.error('Error in GET /items:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to fetch items' 
-    });
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// POST /api/items/:id/like - Liker un item
+// POST /api/items/:id/like
 router.post('/:id/like', async (req, res) => {
   try {
     const item = await Item.findOne({ itemID: req.params.id });
-    
     if (!item) {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'Item not found' 
-      });
+      return res.status(404).json({ success: false, error: 'Item not found' });
     }
-
     item.likes += 1;
     await item.save();
-
-    res.json({
-      success: true,
-      likes: item.likes
-    });
+    res.json({ success: true, likes: item.likes });
   } catch (error) {
-    console.error('Error in POST /items/:id/like:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to like item' 
-    });
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
