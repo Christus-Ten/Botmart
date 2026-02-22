@@ -12,71 +12,59 @@ const apiRoutes = require('./api');
 
 const app = express();
 const PORT = process.env.PORT || 10000;
-const HOST = '0.0.0.0'; // Important pour Render
+const HOST = '0.0.0.0';
+
+console.log('📁 Vérification de la structure...');
+console.log('Dossier courant:', __dirname);
+
+// Vérifier que models/Item.js existe
+const itemModelPath = path.join(__dirname, 'models', 'Item.js');
+if (fs.existsSync(itemModelPath)) {
+  console.log('✅ models/Item.js trouvé');
+} else {
+  console.error('❌ models/Item.js NON trouvé!');
+}
 
 // Connexion à MongoDB
 connectDB();
 
-// Créer le dossier raw s'il n'existe pas
+// Créer le dossier raw
 const rawDir = path.join(__dirname, 'public', 'raw');
 if (!fs.existsSync(rawDir)) {
   fs.mkdirSync(rawDir, { recursive: true });
+  console.log('✅ Dossier public/raw créé');
 }
 
-// Middleware de sécurité
+// Middleware
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" },
   contentSecurityPolicy: false,
 }));
 
-// Compression
 app.use(compression());
-
-// CORS - Configuration pour Render
-app.use(cors({
-  origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
-}));
+app.use(cors({ origin: '*', methods: ['GET', 'POST', 'PUT', 'DELETE'] }));
 
 // Rate limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 15 * 60 * 1000,
   max: parseInt(process.env.API_RATE_LIMIT) || 100,
-  message: { 
-    success: false, 
-    error: 'Too many requests from this IP' 
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
+  message: { success: false, error: 'Too many requests' }
 });
 app.use('/api/', limiter);
 
-// Body parsing avec limite augmentée
-app.use(express.json({ limit: process.env.UPLOAD_SIZE_LIMIT || '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: process.env.UPLOAD_SIZE_LIMIT || '50mb' }));
+// Body parsing
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// Routes API
+// Routes
 app.use('/api', apiRoutes);
+app.use('/raw', express.static(path.join(__dirname, 'public', 'raw')));
 
-// Route pour les fichiers bruts
-app.use('/raw', express.static(path.join(__dirname, 'public', 'raw'), {
-  setHeaders: (res, filePath) => {
-    res.setHeader('Content-Type', 'application/javascript');
-    res.setHeader('Access-Control-Allow-Origin', '*');
-  }
-}));
-
-// Route de base avec infos Render
+// Route principale
 app.get('/', (req, res) => {
   res.json({
     name: 'BotMart API',
-    version: '1.0.0',
     status: 'online',
-    platform: 'Render.com',
-    environment: process.env.NODE_ENV,
-    timestamp: new Date().toISOString(),
     endpoints: {
       items: '/api/items',
       item: '/api/item/:id',
@@ -84,69 +72,33 @@ app.get('/', (req, res) => {
       stats: '/api/stats',
       paste: '/v1/paste',
       raw: '/raw/:filename'
-    },
-    documentation: 'https://github.com/votre-username/botmart#readme'
+    }
   });
 });
 
-// Route pour vérifier la santé du serveur (utile pour Render)
+// Health check
 app.get('/health', (req, res) => {
-  res.status(200).json({ 
-    status: 'healthy',
-    uptime: process.uptime(),
-    timestamp: Date.now()
-  });
+  res.status(200).json({ status: 'healthy', uptime: process.uptime() });
 });
 
-// Gestion des erreurs 404
+// Gestion 404
 app.use((req, res) => {
-  res.status(404).json({ 
-    success: false, 
-    error: 'Route not found' 
-  });
+  res.status(404).json({ success: false, error: 'Route not found' });
 });
 
-// Gestion des erreurs globales
+// Gestion erreurs
 app.use((err, req, res, next) => {
   console.error('Error:', err.stack);
-  
-  const statusCode = err.statusCode || 500;
-  const message = process.env.NODE_ENV === 'production' 
-    ? 'Internal Server Error' 
-    : err.message;
-
-  res.status(statusCode).json({ 
-    success: false, 
-    error: message,
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
-  });
+  res.status(500).json({ success: false, error: 'Internal Server Error' });
 });
 
-// Démarrage du serveur
+// Démarrage
 app.listen(PORT, HOST, () => {
   console.log(`
-╭──────────────────────────────────╮
-│        🚀 BotMart Server          │
-│   ════════════════════════════   │
-│   Status: ✅ Online               │
-│   Port: ${PORT.toString().padEnd(20)}│
-│   Host: ${HOST.padEnd(20)}│
-│   Environment: ${(process.env.NODE_ENV || 'development').padEnd(11)}│
-│   MongoDB: ✅ Connected           │
-│   Platform: Render.com             │
-│   ${new Date().toLocaleString().padEnd(26)}│
-╰──────────────────────────────────╯
+╭──────────────────────────╮
+│    🚀 BotMart Server      │
+│    Port: ${PORT}              │
+│    Status: ✅ Online       │
+╰──────────────────────────╯
   `);
-});
-
-// Gestion propre de l'arrêt
-process.on('SIGTERM', () => {
-  console.log('SIGTERM signal received: closing HTTP server');
-  server.close(() => {
-    console.log('HTTP server closed');
-    mongoose.connection.close(false, () => {
-      console.log('MongoDB connection closed');
-      process.exit(0);
-    });
-  });
 });
