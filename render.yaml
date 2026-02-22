@@ -2,34 +2,11 @@ services:
   - type: web
     name: botmart
     runtime: node
-    repo: https://github.com/votre-username/botmart
     plan: free
-    region: oregon
-    branch: main
     buildCommand: npm install
     startCommand: npm start
-    healthCheckPath: /
     envVars:
       - key: NODE_VERSION
         value: 18.17.0
-      - key: NODE_ENV
-        value: production
-      - key: PORT
-        value: 10000
       - key: MONGODB_URI
-        fromDatabase:
-          name: botmart-db
-          property: connectionString
-      - key: API_RATE_LIMIT
-        value: 100
-      - key: UPLOAD_SIZE_LIMIT
-        value: 10mb
-      - key: CORS_ORIGIN
-        value: "*"
-
-databases:
-  - name: botmart-db
-    plan: free
-    region: oregon
-    databaseName: botmart
-    user: botmart_user
+        sync: false
