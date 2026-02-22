@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const Item = require('../models/Item');
 const os = require('os');
+const path = require('path');
+const Item = require(path.join(__dirname, '..', 'models', 'Item'));
 
-// GET /api/stats - Statistiques du marketplace
+// GET /api/stats
 router.get('/', async (req, res) => {
   try {
     const totalCommands = await Item.countDocuments();
@@ -16,9 +17,7 @@ router.get('/', async (req, res) => {
     const dailyActiveUsers = await Item.aggregate([
       {
         $match: {
-          createdAt: {
-            $gte: new Date(new Date().setDate(new Date().getDate() - 1))
-          }
+          createdAt: { $gte: new Date(new Date().setDate(new Date().getDate() - 1)) }
         }
       },
       { $group: { _id: "$authorID" } },
@@ -43,33 +42,21 @@ router.get('/', async (req, res) => {
       .limit(5)
       .select('itemName itemID views');
 
-    // Informations d'hébergement
     const uptime = process.uptime();
     const days = Math.floor(uptime / 86400);
     const hours = Math.floor((uptime % 86400) / 3600);
     const minutes = Math.floor(((uptime % 86400) % 3600) / 60);
-    const seconds = Math.floor(((uptime % 86400) % 3600) % 60);
 
     res.json({
       success: true,
       stats: {
         hosting: {
-          uptime: {
-            days,
-            hours,
-            minutes,
-            seconds,
-            total: uptime
-          },
+          uptime: { days, hours, minutes },
           system: {
             platform: os.platform(),
             arch: os.arch(),
             nodeVersion: process.version,
-            cpuCores: os.cpus().length,
-            memory: {
-              total: os.totalmem(),
-              free: os.freemem()
-            }
+            cpuCores: os.cpus().length
           }
         },
         totalCommands,
@@ -81,11 +68,7 @@ router.get('/', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error in GET /stats:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to fetch statistics' 
-    });
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
