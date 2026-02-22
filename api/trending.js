@@ -1,8 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const Item = require('../models/Item');
+const path = require('path');
+const Item = require(path.join(__dirname, '..', 'models', 'Item'));
 
-// GET /api/trending - Items tendance
+// GET /api/trending
 router.get('/', async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 10;
@@ -18,11 +19,7 @@ router.get('/', async (req, res) => {
       count: trending.length
     });
   } catch (error) {
-    console.error('Error in GET /trending:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to fetch trending items' 
-    });
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
