@@ -1,16 +1,15 @@
 const express = require('express');
 const router = express.Router();
-const Item = require('../models/Item');
 const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
+const Item = require(path.join(__dirname, '..', 'models', 'Item'));
 
-// POST /v1/paste - Uploader un nouveau commande
+// POST /v1/paste
 router.post('/', async (req, res) => {
   try {
     const { itemName, description, type, code, authorName, authorID, tags } = req.body;
 
-    // Validation
     if (!itemName || !code) {
       return res.status(400).json({ 
         success: false, 
@@ -18,23 +17,18 @@ router.post('/', async (req, res) => {
       });
     }
 
-    // Générer un ID unique
+    // Générer ID unique
     const lastItem = await Item.findOne().sort({ itemID: -1 });
     const itemID = (lastItem?.itemID || 0) + 1;
     
     const rawID = uuidv4();
     const fileName = `${rawID}.js`;
-    const filePath = path.join(__dirname, '../public/raw', fileName);
+    const filePath = path.join(__dirname, '..', 'public', 'raw', fileName);
 
-    // Créer le dossier raw s'il n'existe pas
-    if (!fs.existsSync(path.join(__dirname, '../public/raw'))) {
-      fs.mkdirSync(path.join(__dirname, '../public/raw'), { recursive: true });
-    }
-
-    // Sauvegarder le code dans un fichier
+    // Sauvegarder le fichier
     fs.writeFileSync(filePath, code);
 
-    // Créer l'item dans la base de données
+    // Créer l'item
     const newItem = new Item({
       itemID,
       itemName,
@@ -59,7 +53,7 @@ router.post('/', async (req, res) => {
       message: 'Command uploaded successfully'
     });
   } catch (error) {
-    console.error('Error in POST /v1/paste:', error);
+    console.error('Upload error:', error);
     res.status(500).json({ 
       success: false, 
       error: 'Failed to upload command' 
